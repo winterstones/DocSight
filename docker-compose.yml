@@ -1,0 +1,104 @@
+services:
+  # ─────────────────────────────────────────
+  # LOOM — Infrastructure (don't modify)
+  # ─────────────────────────────────────────
+  loom-api:
+    image: registry.gitlab.com/swiss-armed-forces/cyber-command/cea/loom/api:latest
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - elasticsearch
+      - redis
+    ports:
+      - "8001:8000"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+  # ─────────────────────────────────────────
+  # DOCSIGHT — Your application
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docsight}
+      POSTGRES_USER: ${POSTGRES_USER:-docsight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docsight}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docsight}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DATABASE_URL=postgres://${POSTGRES_USER:-docsight}:${POSTGRES_PASSWORD:-docsight}@postgres:5432/${POSTGRES_DB:-docsight}
+      - REDIS_URL=redis://redis:6379
+      - LOOM_API_URL=http://loom-api:8000
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ALLOWED_HOSTS=localhost,backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: python manage.py runserver 0.0.0.0:8000
+
+  celery:
+    build:
+      context: ./backend
+      target: development
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DATABASE_URL=postgres://${POSTGRES_USER:-docsight}:${POSTGRES_PASSWORD:-docsight}@postgres:5432/${POSTGRES_DB:-docsight}
+      - REDIS_URL=redis://redis:6379
+      - LOOM_API_URL=http://loom-api:8000
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A config worker -l info
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    command: npm run dev -- --host
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
