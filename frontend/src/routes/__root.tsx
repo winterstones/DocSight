@@ -1,6 +1,7 @@
 import { createRootRouteWithContext, Link, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools }                  from "@tanstack/router-devtools"
 import type { QueryClient }                         from "@tanstack/react-query"
+import { useAuth, useLogout } from "../hooks/useAuth"
 
 interface RouterContext {
   queryClient: QueryClient
@@ -11,6 +12,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootLayout() {
+  const { data: user, isLoading } = useAuth()
+  const logoutMutation = useLogout()
+
   return (
     <div className="app-layout">
       <nav className="top-nav" id="main-nav">
@@ -24,7 +28,25 @@ function RootLayout() {
           <Link to="/upload"  activeProps={{ className: "active" }}>Importer</Link>
         </div>
         <div className="nav-user" id="nav-user-menu">
-          {/* Rempli par useAuth hook — Semaine 2 */}
+          {isLoading ? (
+            <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>...</span>
+          ) : user ? (
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem' }}>{user.username}</span>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} 
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                Déconnexion
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+              Connexion
+            </Link>
+          )}
         </div>
       </nav>
 

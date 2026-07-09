@@ -33,8 +33,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
 
-    // Si 401 et pas encore retryé → tenter un refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Si 401 et pas encore retryé, et que ce n'est pas la requête de refresh elle-même
+    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== "/auth/refresh/") {
       if (isRefreshing) {
         // Une requête de refresh est déjà en cours → mettre en file d'attente
         return new Promise((resolve, reject) => {
@@ -52,8 +52,10 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest)  // Rejoue la requête originale
       } catch (refreshError) {
         processQueue(refreshError as AxiosError)
-        // Refresh échoué → session expirée → rediriger vers login
-        window.location.href = "/login"
+        // Refresh échoué → session expirée → rediriger vers login si on n'y est pas déjà
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/login/") {
+          window.location.href = "/login"
+        }
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
