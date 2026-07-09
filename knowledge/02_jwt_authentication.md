@@ -11,7 +11,7 @@ The parameters are configured in the Django settings (`base.py`) under the `SIMP
 | `ACCESS_TOKEN_LIFETIME` | 15 Minutes | `access_token` | Short-lived token for authorizing API requests. |
 | `REFRESH_TOKEN_LIFETIME` | 7 Days | `refresh_token` | Long-lived token used to request a new access token. |
 | `AUTH_COOKIE_HTTP_ONLY` | `True` | N/A | Restricts access to the cookie via browser JS. |
-| `AUTH_COOKIE_SECURE` | Dependent (`False` in dev) | N/A | Only transmits cookie over HTTPS. |
+| `AUTH_COOKIE_SECURE` | Dependent (`False` in dev, `True` in prod) | N/A | Transmits cookie only over HTTPS. Enforced in `production.py`. |
 | `AUTH_COOKIE_SAMESITE` | `Strict` | N/A | Prevents CSRF transmission of cookies. |
 
 ---
@@ -80,6 +80,24 @@ All authentication endpoints are located under `/api/auth/`:
     }
   }
   ```
+
+### 2.5. Password Change
+- **Endpoint**: `POST /api/auth/password/change/`
+- **Permissions**: Requires authenticated user (`IsAuthenticated` permission).
+- **Request Body**:
+  ```json
+  {
+    "old_password": "operator123",
+    "new_password": "newsecurepassword123"
+  }
+  ```
+- **Response Body**:
+  ```json
+  {
+    "detail": "Mot de passe modifié avec succès."
+  }
+  ```
+- **Action**: Validates the old password, saves the new password, blacklists the active `refresh_token` in the token blacklist database, and clears both authentication cookies.
 
 ---
 

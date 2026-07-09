@@ -126,4 +126,33 @@ class DocumentSearchService:
         if not requested:
             return allowed
         return list(set(requested) & set(allowed))
+
+## 4. DRF Custom Permission Classes
+
+To protect API endpoints, DocSight defines custom Django REST Framework (DRF) permission classes based on the user's role mapping:
+
+| Permission Class | Allowed Roles | Description / Scope |
+| :--- | :--- | :--- |
+| `IsAdmin` | `admin` | Restricts access exclusively to users with `role == 'admin'`. |
+| `IsSupervisor` | `admin`, `supervisor` | Restricts access to users with `role` as admin or supervisor. |
+| `IsOperator` | `admin`, `supervisor`, `operator` | Restricts access to users with any valid role (admin, supervisor, operator). |
+
+### Permission Classes Implementation (`apps/authentication/api/permissions.py`)
+
+```python
+from rest_framework.permissions import BasePermission
+
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and getattr(request.user, 'role', None) == 'admin')
+
+class IsSupervisor(BasePermission):
+    def has_permission(self, request, view):
+        role = getattr(request.user, 'role', None)
+        return bool(request.user and request.user.is_authenticated and role in ['admin', 'supervisor'])
+
+class IsOperator(BasePermission):
+    def has_permission(self, request, view):
+        role = getattr(request.user, 'role', None)
+        return bool(request.user and request.user.is_authenticated and role in ['admin', 'supervisor', 'operator'])
 ```

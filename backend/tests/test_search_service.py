@@ -8,6 +8,7 @@ Principes :
   - Tests déterministes (même résultat à chaque run)
 """
 import pytest
+pytestmark = pytest.mark.django_db(transaction=True)
 from apps.search.domain.services import DocumentSearchService, SearchRequest
 from apps.search.infrastructure.mock_engine import MockSearchEngine, MOCK_RESULTS
 

@@ -5,6 +5,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 
 # Active le mock engine pour tous les tests — 0 dépendance Loom
 os.environ["USE_MOCK_ENGINE"] = "True"
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 
 def pytest_configure(config):

@@ -97,4 +97,13 @@ class AbstractSearchEngine(ABC):
     async def get_tags(self) -> list[str]:
         """Fetch all tags registered on the search engine."""
         pass
-```
+
+## 4. Deployment & Startup Environments
+
+DocSight supports three execution profiles tailored to different deployment phases:
+
+| Environment Profile | Script File | Service Orchestration | Settings & Security Context |
+| :--- | :--- | :--- | :--- |
+| **Development** | `start-dev.bat` | Docker Compose builds and runs all services. | Debug modes active; utilizes default development mock engine settings. |
+| **Hybrid** | `start-hybrid.bat` | Launches infrastructure in Docker; runs Vite frontend, Celery, and Django backend locally. | Facilitates local debugging, hot reloading, and live step-through execution. |
+| **Production** | `start-prod.bat` | Launches fully production-configured Docker containers (`docker-compose.prod.yml`). | `DEBUG=False`, `AUTH_COOKIE_SECURE=True` (HTTPS only), restricted CORS and allowed hosts. |
