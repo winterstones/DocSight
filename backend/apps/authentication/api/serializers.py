@@ -14,3 +14,8 @@ class UserSerializer(serializers.ModelSerializer):
         model  = User
         fields = ["id", "username", "email", "first_name", "last_name", "role"]
         # Ne jamais exposer le password, même hashé
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)

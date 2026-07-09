@@ -27,7 +27,7 @@ class Command(BaseCommand):
             if created:
                 admin_user.set_password("admin123")
                 admin_user.save()
-                UserProfile.objects.create(user=admin_user)
+                # UserProfile is created automatically by post_save signal
                 self.stdout.write(self.style.SUCCESS("Admin user created."))
             else:
                 self.stdout.write("Admin user already exists.")
@@ -43,7 +43,7 @@ class Command(BaseCommand):
             if created:
                 op1.set_password("operator123")
                 op1.save()
-                profile1 = UserProfile.objects.create(user=op1)
+                profile1 = UserProfile.objects.get(user=op1)
                 profile1.allowed_tags.add(tag1)
                 self.stdout.write(self.style.SUCCESS("Operator 1 (ligne-a) created."))
             else:
@@ -60,7 +60,7 @@ class Command(BaseCommand):
             if created:
                 op2.set_password("operator123")
                 op2.save()
-                profile2 = UserProfile.objects.create(user=op2)
+                profile2 = UserProfile.objects.get(user=op2)
                 profile2.allowed_tags.add(tag2)
                 self.stdout.write(self.style.SUCCESS("Operator 2 (ligne-b) created."))
             else:
