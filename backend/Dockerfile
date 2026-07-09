@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ─── Development ───────────────────────────────────────────────────────────────
 FROM base AS development
 
-COPY requirements/development.txt .
-RUN pip install --no-cache-dir -r development.txt
+COPY requirements/ ./requirements/
+RUN pip install --no-cache-dir -r requirements/development.txt
 
 COPY . .
 
@@ -19,8 +19,8 @@ EXPOSE 8000
 # ─── Production ────────────────────────────────────────────────────────────────
 FROM base AS production
 
-COPY requirements/base.txt .
-RUN pip install --no-cache-dir -r base.txt
+COPY requirements/ ./requirements/
+RUN pip install --no-cache-dir -r requirements/base.txt
 
 COPY . .
 

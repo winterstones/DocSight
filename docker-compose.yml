@@ -7,11 +7,12 @@ services:
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - REDIS_URL=redis://redis:6379
+      - REDIS_CACHE_HOST=redis://redis:6379
     depends_on:
       - elasticsearch
       - redis
     ports:
-      - "8001:8000"
+      - "8001:8084"
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
@@ -31,6 +32,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-docsight}
       POSTGRES_USER: ${POSTGRES_USER:-docsight}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docsight}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,22 +44,22 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
 
   backend:
     build:
       context: ./backend
-      target: development
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.development
       - DATABASE_URL=postgres://${POSTGRES_USER:-docsight}:${POSTGRES_PASSWORD:-docsight}@postgres:5432/${POSTGRES_DB:-docsight}
+      - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379
-      - LOOM_API_URL=http://loom-api:8000
+      - LOOM_API_URL=http://loom-api:8084
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - ALLOWED_HOSTS=localhost,backend
-    volumes:
-      - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
@@ -64,39 +67,30 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: python manage.py runserver 0.0.0.0:8000
 
   celery:
     build:
       context: ./backend
-      target: development
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.development
       - DATABASE_URL=postgres://${POSTGRES_USER:-docsight}:${POSTGRES_PASSWORD:-docsight}@postgres:5432/${POSTGRES_DB:-docsight}
+      - POSTGRES_HOST=postgres
       - REDIS_URL=redis://redis:6379
-      - LOOM_API_URL=http://loom-api:8000
+      - LOOM_API_URL=http://loom-api:8084
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
-    volumes:
-      - ./backend:/app
     depends_on:
       - postgres
       - redis
-    command: celery -A config worker -l info
 
   frontend:
     build:
       context: ./frontend
-      target: development
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     ports:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
-    command: npm run dev -- --host
 
 volumes:
   postgres_data:

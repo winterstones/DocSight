@@ -33,16 +33,44 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB", default="docsight"),
-        "USER": config("POSTGRES_USER", default="docsight"),
-        "PASSWORD": config("POSTGRES_PASSWORD", default="docsight"),
-        "HOST": config("POSTGRES_HOST", default="postgres"),
-        "PORT": config("POSTGRES_PORT", default="5432"),
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+DATABASE_URL = config("DATABASE_URL", default=None)
+
+if DATABASE_URL and DATABASE_URL.startswith("sqlite:///"):
+    from pathlib import Path
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / DATABASE_URL.replace("sqlite:///", ""),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": config("POSTGRES_DB", default="docsight"),
+            "USER": config("POSTGRES_USER", default="docsight"),
+            "PASSWORD": config("POSTGRES_PASSWORD", default="docsight"),
+            "HOST": config("POSTGRES_HOST", default="postgres"),
+            "PORT": config("POSTGRES_PORT", default="5432"),
+        }
+    }
 
 AUTH_USER_MODEL = "authentication.User"
 

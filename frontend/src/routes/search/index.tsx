@@ -26,13 +26,21 @@ export const Route = createFileRoute("/search/")({
   // Search params validés par Zod — TypeScript erreur si invalide
   validateSearch: SearchParamsSchema,
 
+  loaderDeps: ({ search: { q, tags, file_types, page, page_size } }) => ({
+    q,
+    tags,
+    file_types,
+    page,
+    page_size,
+  }),
+
   // Loader : précharge les données avant le rendu du composant
   // => L'utilisateur ne voit jamais de spinner sur la page de recherche
-  loader: ({ context: { queryClient }, search }) => {
-    if (search.q) {
+  loader: ({ context: { queryClient }, deps }) => {
+    if (deps.q) {
       queryClient.prefetchQuery({
-        queryKey: searchKeys.list(search),
-        queryFn:  () => searchApi.search(search),
+        queryKey: searchKeys.list(deps),
+        queryFn:  () => searchApi.search(deps),
       })
     }
   },

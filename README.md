@@ -46,24 +46,46 @@ apps/search/
 
 ## Démarrage rapide
 
+### Prérequis
 ```bash
-# 1. Cloner et configurer
 git clone https://github.com/YOUR_USERNAME/docsight.git
 cd docsight
-cp .env.example .env
-
-# 2. Lancer toute la stack (DocSight + Loom + Elasticsearch)
-docker-compose up -d
-
-# 3. Initialiser la base de données
-docker-compose exec backend python manage.py migrate
-docker-compose exec backend python manage.py createsuperuser
-
-# 4. Accéder à l'application
-# Frontend : http://localhost:5173
-# Backend API : http://localhost:8000/api/
-# Loom API : http://localhost:8001
+cp .env.example .env # N'oubliez pas d'éditer les variables si besoin
 ```
+
+Pour vous faciliter la vie sous Windows, des scripts de lancement sont fournis à la racine du projet :
+
+### Option 1 : Développement Hybride (Recommandé)
+Laisse Docker s'occuper de l'infrastructure lourde, mais fait tourner votre code en local pour le hot-reload et le débogage.
+1. Exécutez `start-hybrid.bat`
+2. Le script lancera automatiquement les bases de données via Docker et ouvrira 3 terminaux (Django, Celery, React).
+
+### Option 2 : Développement Full Docker
+Exécute tout l'environnement dans Docker.
+1. Exécutez `start-dev.bat`
+
+### Initialisation & Utilisateurs de démo
+Lors du premier lancement, vous devez initialiser la base de données :
+```bash
+# Si vous utilisez le mode hybride :
+cd backend
+python manage.py migrate
+python manage.py create_demo_users
+
+# Si vous utilisez le mode Full Docker :
+docker-compose exec backend python manage.py migrate
+docker-compose exec backend python manage.py create_demo_users
+```
+
+### Accès à l'application
+- **Frontend** : http://localhost:5173
+- **Backend API** : http://localhost:8000/api/
+- **Admin Django** : http://localhost:8000/admin/
+- **Loom API** : http://localhost:8001
+
+### Option 3 : Production
+Pour simuler l'environnement de production (Nginx, Gunicorn) :
+1. Exécutez `start-prod.bat`
 
 ## Tests
 

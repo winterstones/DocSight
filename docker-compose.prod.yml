@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      target: production
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    # The default command in the production Dockerfile is gunicorn
+
+  celery:
+    build:
+      target: production
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    command: celery -A config worker -l info
+
+  frontend:
+    build:
+      target: production
+    ports:
+      - "80:80"
+    # The default command in the production Dockerfile is nginx
