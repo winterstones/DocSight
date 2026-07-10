@@ -1,4 +1,4 @@
-import type { SearchResult } from "../../schemas/search.schema"
+import type { SearchResult } from "../schemas/search.schema"
 
 interface DocumentCardProps {
   document: SearchResult
@@ -20,7 +20,7 @@ export function DocumentCard({ document, view = "grid" }: DocumentCardProps) {
         <p className="doc-preview">{document.content_preview}</p>
         <div className="doc-meta">
           <div className="doc-tags">
-            {document.tags.map((tag) => (
+            {document.tags.map((tag: string) => (
               <span key={tag} className="tag">{tag}</span>
             ))}
           </div>

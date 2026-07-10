@@ -2,6 +2,8 @@ import { createRootRouteWithContext, Link, Outlet } from "@tanstack/react-router
 import { TanStackRouterDevtools }                  from "@tanstack/router-devtools"
 import type { QueryClient }                         from "@tanstack/react-query"
 import { useAuth, useLogout } from "../hooks/useAuth"
+import { ChatProvider } from "../context/ChatContext"
+import { ChatWidget } from "../components/ChatWidget"
 
 interface RouterContext {
   queryClient: QueryClient
@@ -16,8 +18,9 @@ function RootLayout() {
   const logoutMutation = useLogout()
 
   return (
-    <div className="app-layout">
-      <nav className="top-nav" id="main-nav">
+    <ChatProvider>
+      <div className="app-layout">
+        <nav className="top-nav" id="main-nav">
         <div className="nav-brand">
           <span className="nav-logo">🔍</span>
           <strong>DocSight</strong>
@@ -60,6 +63,8 @@ function RootLayout() {
 
       {/* DevTools uniquement en développement */}
       {import.meta.env.DEV && <TanStackRouterDevtools />}
+      <ChatWidget />
     </div>
+    </ChatProvider>
   )
 }

@@ -15,6 +15,7 @@ import { searchKeys }       from "../../hooks/queryKeys"
 import { useSearch, useTags } from "../../hooks/useSearch"
 import { searchApi }         from "../../api/search.api"
 import { DocumentCard } from "../../components/DocumentCard"
+import { useChatContext } from "../../context/ChatContext"
 
 // ─── Route definition ─────────────────────────────────────────────────────────
 
@@ -46,6 +47,22 @@ export const Route = createFileRoute("/search/")({
 const columnHelper = createColumnHelper<SearchResult>()
 
 const columns = [
+  columnHelper.display({
+    id: "select",
+    header: "Sel.",
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as any
+      const isSelected = meta?.selectedDocumentIds?.includes(row.original.id)
+      return (
+        <input
+          type="checkbox"
+          checked={isSelected || false}
+          onChange={() => meta?.toggleDocumentSelection?.(row.original.id)}
+          aria-label="Sélectionner le document"
+        />
+      )
+    },
+  }),
   columnHelper.accessor("title", {
     header:       "Document",
     enableSorting: true,
@@ -94,12 +111,18 @@ function SearchPage() {
   // Debounce ref
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+  const { selectedDocumentIds, toggleDocumentSelection } = useChatContext()
+
   const table = useReactTable({
     data:             data?.results ?? [],
     columns,
     getCoreRowModel:  getCoreRowModel(),
     manualPagination: true,
     pageCount:        data ? Math.ceil(data.total / search.page_size) : 0,
+    meta: {
+      selectedDocumentIds,
+      toggleDocumentSelection
+    }
   })
 
   const handleSearch = (q: string) => {
@@ -258,7 +281,18 @@ function SearchPage() {
           ) : (
             <div className="results-grid">
               {data?.results.map(doc => (
-                <DocumentCard key={doc.id} document={doc} view="grid" />
+                <div key={doc.id} style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedDocumentIds.includes(doc.id)}
+                      onChange={() => toggleDocumentSelection(doc.id)}
+                      style={{ transform: 'scale(1.2)' }}
+                      aria-label="Sélectionner le document"
+                    />
+                  </div>
+                  <DocumentCard document={doc} view="grid" />
+                </div>
               ))}
             </div>
           )}
