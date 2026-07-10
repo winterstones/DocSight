@@ -5,7 +5,7 @@ services:
   loom-api:
     image: registry.gitlab.com/swiss-armed-forces/cyber-command/cea/loom/api:latest
     environment:
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ES_HOST=http://elasticsearch:9200
       - REDIS_URL=redis://redis:6379
       - REDIS_CACHE_HOST=redis://redis:6379
     depends_on:
@@ -15,7 +15,7 @@ services:
       - "8001:8084"
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.1
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false

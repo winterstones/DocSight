@@ -114,6 +114,7 @@ CELERY_RESULT_SERIALIZER = "json"
 
 # ─── Loom Integration ──────────────────────────────────────────────────────────
 LOOM_API_URL = config("LOOM_API_URL", default="http://localhost:8001")
+USE_MOCK_ENGINE = config("USE_MOCK_ENGINE", default=False, cast=bool)
 
 # ─── Static & Media ────────────────────────────────────────────────────────────
 STATIC_URL  = "/static/"

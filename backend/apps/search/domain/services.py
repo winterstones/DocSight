@@ -7,6 +7,7 @@ Il reçoit ses dépendances par injection (DIP).
 """
 from dataclasses import dataclass
 
+from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 
 from .interfaces import AbstractSearchEngine, SearchResponse, ChatResponse
@@ -36,7 +37,7 @@ class DocumentSearchService:
 
     async def search(self, user: User, request: SearchRequest) -> SearchResponse:
         # 1. Appliquer le périmètre utilisateur
-        allowed_tags = self._get_allowed_tags(user)
+        allowed_tags = await self._get_allowed_tags(user)
         effective_tags = self._intersect_tags(request.tags, allowed_tags)
 
         # 2. Déléguer au moteur (Loom ou Mock)
@@ -57,6 +58,7 @@ class DocumentSearchService:
         """RAG : question sur les documents autorisés pour cet utilisateur."""
         return await self.engine.chat(question=question, document_ids=document_ids)
 
+    @sync_to_async
     def _get_allowed_tags(self, user: User) -> list[str] | None:
         """
         Retourne les tags autorisés selon le profil utilisateur.
