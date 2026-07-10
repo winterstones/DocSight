@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react"
 import { setupServer } from "msw/node"
 import { http, HttpResponse } from "msw"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -38,7 +38,7 @@ const mockResults: SearchResponse = {
 }
 
 const server = setupServer(
-  http.get("*/api/search", ({ request }) => {
+  http.get("*/api/search/", ({ request }) => {
     const url = new URL(request.url)
     const q = url.searchParams.get("q")
     
@@ -55,13 +55,31 @@ const server = setupServer(
     return HttpResponse.json(mockResults)
   }),
   
-  http.get("*/api/search/tags", () => {
-    return HttpResponse.json(["manuel", "v2", "réunion", "q3", "rh"])
+  http.get("*/api/search/tags/", () => {
+    return HttpResponse.json({ tags: ["manuel", "v2", "réunion", "q3", "rh"] })
+  }),
+  
+  http.get("*/api/auth/me/", () => {
+    return HttpResponse.json({
+      id: 1,
+      username: "admin",
+      email: "admin@docsight.local",
+      first_name: "",
+      last_name: "",
+      role: "admin"
+    })
+  }),
+  
+  http.post("*/api/auth/refresh/", () => {
+    return HttpResponse.json({ detail: "Token rafraîchi." })
   })
 )
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  cleanup()
+})
 afterAll(() => server.close())
 
 // ─── Setup Tests ─────────────────────────────────────────────────────────────
@@ -91,7 +109,7 @@ describe("Search Page", () => {
     )
 
     // Vérifie le rendu de la search bar
-    expect(screen.getByPlaceholderText(/Rechercher dans vos documents/i)).toBeDefined()
+    expect(await screen.findByPlaceholderText(/Rechercher dans vos documents/i)).toBeDefined()
     
     // Vérifie que les filtres sont rendus
     expect(await screen.findByText("Filtres")).toBeDefined()

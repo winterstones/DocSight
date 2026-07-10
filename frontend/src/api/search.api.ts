@@ -27,9 +27,8 @@ export const searchApi = {
         page:       params.page,
         page_size:  params.page_size,
       },
-      signal,  // AbortController — requête annulée si le composant se démonte
+      signal,
     })
-    // Validation Zod : lance une erreur si la structure ne correspond pas
     return SearchResponseSchema.parse(response.data)
   },
 

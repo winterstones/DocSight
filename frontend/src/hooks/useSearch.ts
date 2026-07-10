@@ -28,7 +28,7 @@ export function useSearch(params: SearchParams) {
       // si les params changent avant que la réponse arrive (race condition éliminée)
       searchApi.search(params, signal),
 
-    enabled:           params.q.length > 0,  // Pas de requête sur query vide
+    enabled:           true,  // Permet de charger les résultats initiaux (vide)
     staleTime:         1000 * 30,             // Résultats frais 30 secondes
     placeholderData:   keepPreviousData,      // Garde les anciens résultats pendant le chargement
     retry:             1,
