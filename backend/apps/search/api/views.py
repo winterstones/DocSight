@@ -1,4 +1,7 @@
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -60,15 +63,21 @@ class ChatView(APIView):
         data = serializer.validated_data
 
         service  = _get_service()
-        response = asyncio.run(
-            service.chat(
-                user=request.user,
-                question=data["question"],
-                document_ids=data["document_ids"] or None,
+        try:
+            response = asyncio.run(
+                service.chat(
+                    user=request.user,
+                    question=data["question"],
+                    document_ids=data["document_ids"] or None,
+                )
             )
-        )
-
-        return Response(ChatResponseSerializer(response).data)
+            return Response(ChatResponseSerializer(response).data)
+        except Exception as e:
+            logger.exception("Erreur du moteur de recherche lors du chat RAG")
+            return Response(
+                {"detail": "Le service d'IA (Loom) est temporairement indisponible ou a rencontré une erreur interne."},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
 
 
 class TagsView(APIView):
