@@ -165,3 +165,69 @@ export function DocumentCard({ document, view = "grid" }) {
 Server-side pagination is driven directly by updating the router search parameters (`page` parameter), triggering a stale cache invalidate and query reload:
 - **Previous page action**: `navigate({ search: (prev) => ({ ...prev, page: prev.page - 1 }) })`
 - **Next page action**: `navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })`
+
+---
+
+## 4. RAG Chat Assistant Interface
+
+DocSight features a RAG (Retrieval-Augmented Generation) Chat widget allowing users to query documents interactively. The UI isolates document selection state from page views using React Context.
+
+### 4.1. Shared Chat Context (`context/ChatContext.tsx`)
+The `ChatProvider` encapsulates the selected documents scope, making it accessible to any component (e.g., search results table/cards and the chat widget):
+- **`selectedDocumentIds`**: List of document IDs currently checked to restrict the RAG assistant scope.
+- **`toggleDocumentSelection(id)`**: Toggles a document's inclusion in the chat context.
+- **`clearSelections()`**: Empties the selected document context.
+
+```typescript
+import { createContext, useContext, useState, ReactNode } from "react"
+
+interface ChatContextType {
+  selectedDocumentIds: string[]
+  toggleDocumentSelection: (id: string) => void
+  clearSelections: () => void
+}
+
+const ChatContext = createContext<ChatContextType | undefined>(undefined)
+
+export function ChatProvider({ children }: { children: ReactNode }) {
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
+  
+  const toggleDocumentSelection = (id: string) => {
+    setSelectedDocumentIds(prev =>
+      prev.includes(id) ? prev.filter(docId => docId !== id) : [...prev, id]
+    )
+  }
+
+  const clearSelections = () => setSelectedDocumentIds([])
+
+  return (
+    <ChatContext.Provider value={{ selectedDocumentIds, toggleDocumentSelection, clearSelections }}>
+      {children}
+    </ChatContext.Provider>
+  )
+}
+```
+
+### 4.2. Chat Panel Widget (`components/ChatWidget.tsx`)
+The `ChatWidget` component implements the floating chat panel:
+- **Floating Action Button (FAB)**: Toggles the panel visibility (`isOpen`).
+- **History Persistence**: Messages history is cached in `sessionStorage` under the key `"docsight_chat_history"` to maintain state during active sessions.
+- **Auto-scroll Behavior**: Leverages a `useRef` pointing to a dummy `div` at the bottom of the message container, triggering `scrollIntoView` after new messages render.
+- **Asynchronous Execution**: Leverages `useChat` mutation hook from `hooks/useSearch`. Sends both the question query and the current scoped document IDs:
+  ```typescript
+  chatMutation.mutate(
+    { question: userMessage.content, documentIds: selectedDocumentIds },
+    {
+      onSuccess: (data) => {
+        // Appends RAG assistant answer and source citations
+        setMessages(prev => [...prev, { role: "assistant", content: data.answer, sources: data.sources }])
+      },
+      onError: () => {
+        // Safe user-friendly error fallback
+        setMessages(prev => [...prev, { role: "assistant", content: "An error occurred communicating with the assistant." }])
+      }
+    }
+  )
+  ```
+- **Source Link Citations**: If sources are present, they are listed at the bottom of the assistant's message bubble as clickable links formatting to `/search?q=<title>` to view the raw referenced files.
+

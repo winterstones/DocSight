@@ -1,18 +1,22 @@
-# Résolution du plantage de l'API RAG (Loom API)
+# RAG Chat API Crash Troubleshooting
 
-Ce document trace la résolution d'une erreur 500 survenant lors de l'appel au endpoint RAG (`POST /api/search/chat/`) de l'API Django.
+This document traces the resolution of a HTTP 500 internal server error occurring when querying the RAG chat API endpoint (`POST /api/search/chat/`) on the Django backend.
 
-## Symptômes
+---
 
-1. Les appels du frontend vers l'API backend `POST /api/search/chat/` (notamment lorsqu'aucun document n'était sélectionné avec `document_ids: []`) se soldaient par une erreur HTTP 500 brute renvoyée par Django.
-2. Le frontend React (utilisant TanStack Query via `useMutation`) plantait en essayant de parser cette réponse qui était en fait une page de debug HTML Django.
-3. Les logs du backend Django indiquaient l'erreur suivante :
+## 1. Symptoms
+
+1. Requests from the frontend to `POST /api/search/chat/` (specifically when no documents were selected, resulting in `document_ids: []`) yielded a raw HTML 500 debug template from Django.
+2. The React frontend (using TanStack Query `useMutation`) crashed when attempting to parse this HTML response as JSON.
+3. Django backend logs printed the following exception:
    `httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://localhost:8001/v1/ai'`
-4. Du côté du conteneur `docsight-loom-api-1` (l'API d'IA sous-jacente), il s'est avéré que ce service retournait une erreur interne (500) à cause d'une configuration réseau incorrecte (des erreurs récurrentes `socket.gaierror: [Errno -2] Name or service not known` étaient visibles dans les logs du conteneur Docker).
+4. Inspecting the `docsight-loom-api-1` container (the underlying AI search service) revealed that the service returned a 500 error due to incorrect internal network configurations (frequent `socket.gaierror: [Errno -2] Name or service not known` errors in the Docker logs).
 
-## Analyse de la cause racine (Root Cause)
+---
 
-Le code dans `backend/apps/search/api/views.py` appelait le `DocumentSearchService` de la façon suivante :
+## 2. Root Cause Analysis
+
+The code in `backend/apps/search/api/views.py` invoked `DocumentSearchService` as follows:
 
 ```python
 response = asyncio.run(
@@ -24,18 +28,20 @@ response = asyncio.run(
 )
 ```
 
-Ce service faisait appel à `LoomSearchEngine.chat()`, qui transmettait la requête au conteneur `docsight-loom-api-1` via la librairie `httpx`.
-Lorsque le conteneur Loom plantait (en renvoyant un 500 Internal Server Error), `httpx` levait automatiquement une exception `HTTPStatusError` grâce à l'appel de `.raise_for_status()`. 
+This service called `LoomSearchEngine.chat()`, which forwarded the query to the `docsight-loom-api-1` container via `httpx`.
+Whenever the Loom container failed (returning a 500 error), `httpx` threw an `HTTPStatusError` due to the use of `.raise_for_status()`.
 
-Cependant, cette exception **n'était pas interceptée** dans la vue Django (`ChatView`), ce qui faisait planter tout le traitement de la requête au niveau de Django REST Framework (DRF), générant ainsi un traceback HTML 500.
+However, this exception **was not caught** in the Django `ChatView` handler. Consequently, the exception bubbled up to the Django REST Framework (DRF) layer, which generated a default HTML 500 response page.
 
-L'objectif du backend Django est de toujours garantir une réponse stable et au format JSON pour le frontend, même si un microservice externe tombe en panne.
+The goal of the Django backend is to always guarantee a stable JSON response structure for the frontend, even if downstream microservices encounter failures.
 
-## Solution appliquée
+---
 
-Pour rendre le système robuste ("resilient") vis-à-vis des pannes du moteur de recherche externe, nous avons encapsulé l'appel dans un bloc `try...except` dans le contrôleur de l'API (`ChatView`).
+## 3. Solution Applied
 
-1. **Modification de `backend/apps/search/api/views.py`** :
+To make the system resilient against downstream service failures, we wrapped the service call in a `try...except` block in the Django API view (`ChatView`):
+
+1. **`backend/apps/search/api/views.py` Modification**:
    ```python
    try:
        response = asyncio.run(
@@ -47,22 +53,24 @@ Pour rendre le système robuste ("resilient") vis-à-vis des pannes du moteur de
        )
        return Response(ChatResponseSerializer(response).data)
    except Exception as e:
-       logger.exception("Erreur du moteur de recherche lors du chat RAG")
+       logger.exception("Search engine error during RAG chat")
        return Response(
-           {"detail": "Le service d'IA (Loom) est temporairement indisponible ou a rencontré une erreur interne."},
+           {"detail": "The AI service (Loom) is temporarily unavailable or encountered an internal error."},
            status=status.HTTP_502_BAD_GATEWAY
        )
    ```
-   *Note*: L'utilisation du code HTTP `502 Bad Gateway` est sémantiquement correcte ici, car Django agit comme une passerelle qui reçoit une réponse invalide ou une erreur d'un serveur tiers (Loom API).
+   *Note*: Returning a `502 Bad Gateway` status is semantically correct here since the Django server, acting as a gateway, received an invalid response from an upstream server (Loom API).
 
-2. **Garantie Front-End** :
-   Le frontend étant déjà configuré avec le callback `onError` dans `useMutation`, il intercepte désormais proprement l'erreur HTTP 502 (dont le format est bien en JSON) et affiche un message d'erreur approprié dans l'interface de messagerie.
+2. **Frontend Handlers**:
+   The frontend is configured with an `onError` callback in `useMutation`. It now correctly intercepts the HTTP 502 JSON payload and displays a clean error message in the chat UI.
 
-3. **Mise en place de tests de robustesse** :
-   Création du fichier `backend/tests/test_chat_view.py` pour valider ce comportement :
-   - Un test "happy path" `test_chat_view_success` vérifiant le fonctionnement normal (simulé avec le `MockSearchEngine`).
-   - Un test "edge case" `test_chat_view_returns_502_on_engine_failure` simulant explicitement une exception au niveau du moteur de recherche via un mock Python (`unittest.mock.patch`), afin de garantir que l'API renvoie bien un `502 Bad Gateway` au format JSON et non un crash HTML.
+3. **Resilience Testing**:
+   Created `backend/tests/test_chat_view.py` to validate this resilience behavior:
+   - A happy path test (`test_chat_view_success`) ensuring normal functioning (using `MockSearchEngine`).
+   - An edge-case test (`test_chat_view_returns_502_on_engine_failure`) patching the search engine using `unittest.mock.patch` to throw an exception, verifying that the API returns a structured HTTP 502 Bad Gateway JSON payload rather than crashing.
 
-## Conclusion
+---
 
-En capturant correctement les exceptions de communication avec le microservice tiers (Loom), nous avons rendu la couche API de DocSight beaucoup plus robuste. Le frontend peut maintenant gérer ces indisponibilités temporaires avec élégance, sans crasher.
+## 4. Conclusion
+
+By catching exceptions from downstream services (Loom), we secured the DocSight API gateway layer. The frontend now handles backend/AI service outages gracefully.

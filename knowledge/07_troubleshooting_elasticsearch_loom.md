@@ -1,50 +1,61 @@
-# Résolution du problème d'intégration Elasticsearch / Loom API
+# Elasticsearch / Loom API Integration Troubleshooting
 
-Ce document trace la résolution d'une erreur 500 persistante lors de l'appel à l'API de recherche Django (`/api/search/`), qui communique avec l'API Loom.
+This document traces the resolution of a persistent 500 error encountered when calling the Django search API (`/api/search/`), which communicates with the Loom API.
 
-## Symptômes
+---
 
-1. Appels à `GET /api/search/?q=test` sur le backend Django retournaient une erreur HTTP 500 (`HTTPStatusError`).
-2. Dans les logs du backend Django, l'erreur détaillée indiquait que l'appel vers l'API Loom (`http://localhost:8001/v1/files`) renvoyait une erreur `400 Bad Request`.
-3. Côté Loom API et Elasticsearch, selon la version d'Elasticsearch utilisée, l'erreur variait :
-   - Sur Elasticsearch `9.2.1` (version par défaut) : `java.io.IOException: Invalid vInt` lors de la recherche.
-   - Sur Elasticsearch `8.17.0` (tentative de downgrade) : `BadRequestError(400, 'None')` lors de l'initialisation des index avec `init_elasticsearch`.
+## 1. Symptoms
 
-## Analyse de la cause racine (Root Cause)
+1. Requests to `GET /api/search/?q=test` on the Django backend returned a 500 HTTP response status (`HTTPStatusError`).
+2. Detailed errors in the Django backend logs indicated that the call to the Loom API (`http://localhost:8001/v1/files`) was failing with a `400 Bad Request` status.
+3. On the Loom API and Elasticsearch side, the error message varied depending on the Elasticsearch version:
+   - **Elasticsearch `9.2.1`** (default version): `java.io.IOException: Invalid vInt` during searches.
+   - **Elasticsearch `8.17.0`** (downgrade attempt): `BadRequestError(400, 'None')` during index initialization via `init_elasticsearch`.
 
-Le problème ne venait pas d'une corruption de l'index ou d'une incompatibilité majeure de la version Elasticsearch, mais d'une erreur d'utilisation de l'API REST Loom depuis le backend Django.
+---
 
-Dans `backend/apps/search/infrastructure/loom_client.py` (l'implémentation de `AbstractSearchEngine`), la méthode `search()` générait un faux `query_id` sous la forme d'un UUID aléatoire :
+## 2. Root Cause Analysis
+
+The issue was not caused by index corruption or major version incompatibilities, but rather by an incorrect usage of the Loom REST API within the Django backend.
+
+In `backend/apps/search/infrastructure/loom_client.py` (the `AbstractSearchEngine` implementation), the `search()` method generated a mock `query_id` using a random UUID:
 
 ```python
 import uuid
 query_id = str(uuid.uuid4())
 ```
 
-Ce `query_id` était ensuite envoyé à l'API Loom via la requête `GET /v1/files?query_id=<uuid>`. 
+This `query_id` was subsequently forwarded to the Loom API in the request: `GET /v1/files?query_id=<uuid>`.
 
-Cependant, dans l'API Loom, le paramètre `query_id` est utilisé pour stocker et transmettre le **Point In Time (PIT) ID** d'Elasticsearch. Un PIT ID est une chaîne encodée en base64 contenant l'état interne de la recherche (dont des entiers variables de Lucene - `vInt`). Lorsque Elasticsearch tentait de décoder l'UUID aléatoire envoyé par Django comme s'il s'agissait d'un PIT ID valide, il levait l'erreur de parsing `Invalid vInt`.
+However, the Loom API utilizes the `query_id` parameter to store and transmit the Elasticsearch **Point In Time (PIT) ID**. A PIT ID is a base64-encoded string representing the internal state of a search context (which includes variable-length integers - `vInt` in Lucene). When Elasticsearch attempted to decode the random UUID string as if it were a valid base64 PIT ID, it threw the Lucene/Elasticsearch parsing exception: `Invalid vInt`.
 
-## Solution appliquée
+---
 
-La solution consistait à corriger le client Django (`loom_client.py`) pour qu'il respecte le flux correct de l'API Loom. Au lieu de générer un UUID aléatoire, le client doit d'abord interroger l'API Loom pour obtenir un vrai PIT ID :
+## 3. Solution Applied
 
-1. **Modification de `loom_client.py`** :
-   Ajout d'une étape pour récupérer un `query_id` valide avant d'effectuer la recherche.
+The resolution required correcting the Django client (`loom_client.py`) to respect the proper Loom API request lifecycle. Instead of generating a random UUID, the client must first fetch a valid PIT ID from the Loom API:
+
+1. **`loom_client.py` Modification**:
+   Added a step to retrieve a valid `query_id` before performing the actual search:
    
    ```python
-   # Obtenir un Point In Time (PIT) ID valide auprès de l'API Loom
+   # Fetch a valid Point In Time (PIT) ID from the Loom API
    query_resp = await self._client.post("/v1/files/query")
    query_resp.raise_for_status()
    query_id = query_resp.json().get("query_id")
    ```
 
-2. **Restauration de la version Elasticsearch** :
-   Nous sommes revenus à l'image `docker.elastic.co/elasticsearch/elasticsearch:9.2.1` dans `docker-compose.yml`, qui est la version parfaitement compatible avec le client Python utilisé par l'API Loom.
+2. **Restoring Elasticsearch Image**:
+   Restored the image to `docker.elastic.co/elasticsearch/elasticsearch:9.2.1` in `docker-compose.yml`, which is fully compatible with the Python client used by the Loom API.
 
-3. **Réinitialisation de l'index** :
-   Après la restauration, le volume Elasticsearch a été recréé et le script d'initialisation a été relancé avec succès (`docker exec docsight-loom-api-1 python -m common.scripts.init_elasticsearch`).
+3. **Re-initializing the Index**:
+   Re-created the Elasticsearch Docker volume and successfully executed the index initialization script:
+   ```bash
+   docker exec docsight-loom-api-1 python -m common.scripts.init_elasticsearch
+   ```
 
-## Conclusion
+---
 
-L'API de recherche backend fonctionne désormais correctement et renvoie le format attendu (HTTP 200). Le frontend peut maintenant consommer la route `/api/search/` avec son token JWT (ou cookie de session) sans encombre.
+## 4. Conclusion
+
+The backend search API is now operational and returns a valid HTTP 200 response. The React frontend can seamlessly query the `/api/search/` endpoint using its HttpOnly JWT session cookie.
