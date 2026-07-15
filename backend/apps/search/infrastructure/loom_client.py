@@ -80,7 +80,10 @@ class LoomSearchEngine(AbstractSearchEngine):
         # 1. Upload
         response = await self._client.post("/v1/files", files=files)
         response.raise_for_status()
-        result = response.json()
+        try:
+            result = response.json() or {}
+        except Exception:
+            result = {}
         file_id = result.get("id") or result.get("file_id")
 
         # 2. Add tags if any

@@ -8,11 +8,38 @@ services:
       - ES_HOST=http://elasticsearch:9200
       - REDIS_URL=redis://redis:6379
       - REDIS_CACHE_HOST=redis://redis:6379
+      - CELERY_BROKER_HOST=redis://redis:6379/1
+      - CELERY_BACKEND_HOST=redis://redis:6379/0
+      - FILE_STORAGE__HOST=minio:9000
+      - FILE_STORAGE__BUCKET_NAME=loom-filestorage
+      - FILE_STORAGE__ACCESS_KEY=minioadmin
+      - FILE_STORAGE__SECRET_KEY=minioadmin
+      - LAZYBYTES_STORAGE__HOST=minio:9000
+      - LAZYBYTES_STORAGE__BUCKET_NAME=loom-lazybytes
+      - LAZYBYTES_STORAGE__ACCESS_KEY=minioadmin
+      - LAZYBYTES_STORAGE__SECRET_KEY=minioadmin
+      - INTAKE_STORAGE__HOST=minio:9000
+      - INTAKE_STORAGE__BUCKET_NAME=loom-intake
+      - INTAKE_STORAGE__ACCESS_KEY=minioadmin
+      - INTAKE_STORAGE__SECRET_KEY=minioadmin
     depends_on:
       - elasticsearch
       - redis
+      - minio
     ports:
       - "8001:8084"
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.2.1
@@ -96,3 +123,4 @@ volumes:
   postgres_data:
   redis_data:
   elasticsearch_data:
+  minio_data:
