@@ -25,7 +25,7 @@ Frontend : React 18 + TanStack Query + TanStack Router + TanStack Table
 Validation: Zod (frontend) + DRF Serializers (backend)
 Auth     : JWT Double Token via HttpOnly Cookies
 Tests    : pytest + Vitest + MSW
-Infra    : Docker Compose + GitHub Actions CI/CD
+Infra    : Docker Compose + GitHub Actions CI/CD + MinIO (S3)
 ```
 
 ## Architecture Backend
@@ -56,9 +56,9 @@ cp .env.example .env # N'oubliez pas d'éditer les variables si besoin
 Pour vous faciliter la vie sous Windows, des scripts de lancement sont fournis à la racine du projet :
 
 ### Option 1 : Développement Hybride (Recommandé)
-Laisse Docker s'occuper de l'infrastructure lourde, mais fait tourner votre code en local pour le hot-reload et le débogage.
+Laisse Docker s'occuper de l'infrastructure lourde (y compris MinIO pour le stockage S3 de Loom), mais fait tourner votre code en local pour le hot-reload et le débogage.
 1. Exécutez `start-hybrid.bat`
-2. Le script lancera automatiquement les bases de données via Docker et ouvrira 3 terminaux (Django, Celery, React).
+2. Le script lancera automatiquement les bases de données (Postgres, Redis, ElasticSearch, MinIO) et l'API Loom via Docker. Il initialisera également automatiquement les buckets S3 nécessaires, puis ouvrira 3 terminaux (Django, Celery, React).
 
 ### Option 2 : Développement Full Docker
 Exécute tout l'environnement dans Docker.
