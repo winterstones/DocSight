@@ -80,3 +80,8 @@ class AbstractSearchEngine(ABC):
     async def get_tags(self) -> list[str]:
         """Récupère tous les tags disponibles."""
         pass
+
+    @abstractmethod
+    async def download_document(self, document_id: str) -> tuple[bytes, str, str]:
+        """Télécharge le fichier original. Retourne (contenu, content_type, filename)."""
+        pass

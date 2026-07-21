@@ -59,3 +59,19 @@ def test_search_endpoint_query_count(api_client, operator_user, django_assert_ma
     
     # Assert a log was created during this request
     assert SearchAuditLog.objects.count() >= 1
+
+def test_download_endpoint_requires_auth(api_client):
+    url = reverse("search-download", kwargs={"doc_id": "doc-001"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+def test_download_endpoint_returns_file(api_client, operator_user):
+    api_client.force_authenticate(user=operator_user)
+    url = reverse("search-download", kwargs={"doc_id": "doc-001"})
+    
+    response = api_client.get(url)
+    
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"] == "text/plain"
+    assert "attachment; filename=\"doc-001.txt\"" in response["Content-Disposition"]
+    assert response.content == b"Mock file content for document doc-001"

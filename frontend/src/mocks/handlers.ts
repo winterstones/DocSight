@@ -70,5 +70,21 @@ export const handlers = [
       role: 'operator',
       is_admin: false
     });
+  }),
+
+  http.get('http://localhost:8000/api/search/documents/:id/download/', ({ params }) => {
+    const { id } = params;
+    const buffer = new ArrayBuffer(8);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < 8; i++) {
+      view[i] = i;
+    }
+    
+    return HttpResponse.arrayBuffer(buffer, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${id}.mock.bin"`
+      }
+    });
   })
 ];

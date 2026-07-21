@@ -55,4 +55,22 @@ export const searchApi = {
     })
     return response.data
   },
+
+  downloadDocument: async (id: string, signal?: AbortSignal): Promise<{ blob: Blob; filename: string }> => {
+    const response = await apiClient.get(`/search/documents/${id}/download/`, {
+      responseType: "blob",
+      signal,
+    })
+    
+    let filename = `${id}.bin`
+    const disposition = response.headers["content-disposition"]
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      if (match && match[1]) {
+        filename = match[1]
+      }
+    }
+    
+    return { blob: response.data, filename }
+  },
 }

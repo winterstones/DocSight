@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
+from django.http import HttpResponse
 
 from apps.search.domain.services import DocumentSearchService, SearchRequest
 from apps.search.infrastructure.factories import get_search_engine
@@ -109,3 +110,25 @@ class UploadView(APIView):
         )
 
         return Response({"document_id": result.document_id, "status": result.status})
+
+class DownloadView(APIView):
+    """GET /api/search/documents/<doc_id>/download/ — Téléchargement du fichier original."""
+
+    def get(self, request, doc_id):
+        service = _get_service()
+        try:
+            content, content_type, filename = asyncio.run(
+                service.download_document(user=request.user, document_id=doc_id)
+            )
+            response = HttpResponse(content, content_type=content_type)
+            # Échapper le nom de fichier pour éviter les erreurs d'en-tête
+            safe_filename = filename.replace('"', '\\"')
+            response["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+            return response
+        except Exception as e:
+            logger.exception("Erreur lors du téléchargement du document")
+            return Response(
+                {"detail": "Le document est introuvable ou vous n'avez pas l'autorisation d'y accéder."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+

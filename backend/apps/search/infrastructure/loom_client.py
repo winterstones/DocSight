@@ -6,6 +6,9 @@ Ce client traduit nos appels abstraits en requêtes HTTP vers Loom.
 """
 import httpx
 from django.conf import settings
+import boto3
+from asgiref.sync import sync_to_async
+from decouple import config
 
 from apps.search.domain.interfaces import (
     AbstractSearchEngine,
@@ -138,6 +141,41 @@ class LoomSearchEngine(AbstractSearchEngine):
             score=raw.get("score", 0.0),
             thumbnail_url=raw.get("thumbnail_file_id", raw.get("thumbnail_url")),
         )
+
+    async def download_document(self, document_id: str) -> tuple[bytes, str, str]:
+        minio_host = config("FILE_STORAGE__HOST", default="localhost:9000")
+        minio_access_key = config("FILE_STORAGE__ACCESS_KEY", default="minioadmin")
+        minio_secret_key = config("FILE_STORAGE__SECRET_KEY", default="minioadmin")
+        
+        endpoint_url = f"http://{minio_host}"
+        
+        def _get_file_sync():
+            s3 = boto3.client(
+                's3',
+                endpoint_url=endpoint_url,
+                aws_access_key_id=minio_access_key,
+                aws_secret_access_key=minio_secret_key,
+                region_name='us-east-1'
+            )
+            bucket = "loom-filestorage"
+            
+            response = s3.get_object(Bucket=bucket, Key=document_id)
+            content = response['Body'].read()
+            content_type = response.get('ContentType', 'application/octet-stream')
+            
+            filename = f"{document_id}"
+            if 'ContentDisposition' in response:
+                import re
+                cd = response['ContentDisposition']
+                m = re.search(r'filename="?([^"]+)"?', cd)
+                if m:
+                    filename = m.group(1)
+            elif 'Metadata' in response and 'filename' in response['Metadata']:
+                filename = response['Metadata']['filename']
+                
+            return content, content_type, filename
+
+        return await sync_to_async(_get_file_sync)()
 
     async def aclose(self) -> None:
         await self._client.aclose()

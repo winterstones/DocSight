@@ -82,3 +82,8 @@ class MockSearchEngine(AbstractSearchEngine):
 
     async def get_tags(self) -> list[str]:
         return ["maintenance", "non-conformite", "qualite", "ligne-a"]
+
+    async def download_document(self, document_id: str) -> tuple[bytes, str, str]:
+        # Retourne un contenu factice pour les tests
+        content = f"Mock file content for document {document_id}".encode('utf-8')
+        return content, "text/plain", f"{document_id}.txt"
